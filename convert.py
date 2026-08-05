@@ -144,6 +144,7 @@ def resource_limits(cpus: str, memory: str) -> dict:
 def build_compose(image: str, env: dict, host_port: int, container_port: int,
                   gw_res: dict, redis_res: dict) -> dict:
     return {
+        "name": "portkey-gateway",
         "services": {
             "airs-gateway": {
                 "image": image,
