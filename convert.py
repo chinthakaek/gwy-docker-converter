@@ -42,6 +42,13 @@ INFRA_ENV_DEFAULTS = {
 
 REDIS_IMAGE = "redis:7.2-alpine"
 
+# Default resource limits based on Portkey official sizing guidance.
+# (1–2 cores, 2–4 GB RAM per gateway instance)
+DEFAULT_RESOURCES = {
+    "gateway": {"cpus": "2.0", "memory": "4g"},
+    "redis":   {"cpus": "0.5", "memory": "512m"},
+}
+
 
 def docker_login(creds_list: list) -> None:
     for cred in creds_list:
@@ -93,7 +100,12 @@ def resolve_image(values: dict, cli_image: str | None) -> str:
     )
 
 
-def build_compose(image: str, env: dict, host_port: int, container_port: int) -> dict:
+def resource_limits(cpus: str, memory: str) -> dict:
+    return {"deploy": {"resources": {"limits": {"cpus": cpus, "memory": memory}}}}
+
+
+def build_compose(image: str, env: dict, host_port: int, container_port: int,
+                  gw_res: dict, redis_res: dict) -> dict:
     return {
         "services": {
             "airs-gateway": {
@@ -104,11 +116,13 @@ def build_compose(image: str, env: dict, host_port: int, container_port: int) ->
                 "environment": env,
                 "depends_on": ["redis-cache"],
                 "extra_hosts": ["model-runner.docker.internal:host-gateway"],
+                **resource_limits(gw_res["cpus"], gw_res["memory"]),
             },
             "redis-cache": {
                 "image": REDIS_IMAGE,
                 "container_name": "airs-redis",
                 "restart": "always",
+                **resource_limits(redis_res["cpus"], redis_res["memory"]),
             },
         }
     }
@@ -159,9 +173,14 @@ def main() -> None:
     host_port = int(service.get("port", 80))
     container_port = int(service.get("containerPort", merged_env.get("PORT", 8787)))
 
+    # Resource limits — values.yaml resources section overrides defaults
+    res = values.get("resources", {})
+    gw_res = {**DEFAULT_RESOURCES["gateway"], **res.get("gateway", {})}
+    redis_res = {**DEFAULT_RESOURCES["redis"], **res.get("redis", {})}
+
     # Step 3: Write docker-compose.yml
     print(f"\n[3/3] Writing {args.output}")
-    compose = build_compose(image, merged_env, host_port, container_port)
+    compose = build_compose(image, merged_env, host_port, container_port, gw_res, redis_res)
 
     output_path = Path(args.output)
     with open(output_path, "w") as f:
@@ -169,6 +188,7 @@ def main() -> None:
 
     print(f"  Written: {output_path}")
     print(f"  Gateway: {host_port} → {container_port} ({len(merged_env)} env vars)")
+    print(f"  Resources: gateway={gw_res['cpus']} CPUs / {gw_res['memory']}  redis={redis_res['cpus']} CPUs / {redis_res['memory']}")
 
     if args.deploy:
         print("\n[+] Deploying with docker compose up -d...")

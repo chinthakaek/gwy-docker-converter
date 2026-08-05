@@ -92,6 +92,34 @@ Infrastructure defaults (Redis connection, control plane URLs, etc.) are
 baked into the converter. Any key in `environment.data` overrides the
 corresponding default, so you only need to specify what differs.
 
+## Resource sizing
+
+Official recommendations from Portkey documentation:
+
+| Component | Minimum | Recommended |
+|---|---|---|
+| Gateway (vCPU) | 1 core | 2 cores |
+| Gateway (RAM) | 2 GB | 4 GB |
+| Redis (vCPU) | 0.25 core | 0.5 core |
+| Redis (RAM) | 256 MB | 512 MB |
+| **Host total (vCPU)** | **1.5 cores** | **2.5 cores** |
+| **Host total (RAM)** | **2.5 GB** | **4.5 GB** |
+
+> Source: Portkey "Deploy a Hybrid Data Plane" documentation — Step 1: Environment Readiness.
+
+The converter sets these as default resource limits in the generated `docker-compose.yml`.
+Override them by adding a `resources:` section to your `values.yaml`:
+
+```yaml
+resources:
+  gateway:
+    cpus: "2.0"
+    memory: "4g"
+  redis:
+    cpus: "0.5"
+    memory: "512m"
+```
+
 ## Security
 
 - **Never commit `values.yaml`** — it contains credentials. It is listed
