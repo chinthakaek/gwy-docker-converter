@@ -92,3 +92,36 @@ Infrastructure defaults (Redis connection, control plane URLs, etc.) are
 baked into the converter. Any key in `environment.data` overrides the
 corresponding default, so you only need to specify what differs.
 
+## Security
+
+- **Never commit `values.yaml`** — it contains credentials. It is listed
+  in `.gitignore` by default.
+- The generated `docker-compose.yml` embeds env vars from `values.yaml`
+  and is also gitignored.
+- For production use, prefer injecting secrets via Docker secrets or a
+  secrets manager rather than plain env vars.
+
+## Required outbound URLs and domains
+
+If your host is behind a firewall or egress proxy, allowlist the following.
+
+### Persistent (required at runtime)
+
+| Domain / URL | Purpose |
+|---|---|
+| `https://aigw.portkey.ai` | Control plane — logs, analytics, and config sync |
+| `https://mp.us.prod.airs-gw.portkey.ai` | Policy engine and guardrails evaluation |
+| `https://api.portkey.ai` | Organisation sync and model config fetch |
+
+### Image pull only
+
+| Domain | Purpose |
+|---|---|
+| `https://registry.portkey.ai` | Pull the gateway container image (needed at deploy/upgrade time) |
+
+### User-defined (request-time)
+
+The gateway forwards requests to whatever AI provider endpoints your virtual
+keys are configured for (e.g. `api.openai.com`, `api.anthropic.com`,
+`generativelanguage.googleapis.com`). These are resolved at request time and
+are not hardcoded — allowlist them based on the providers you use.
