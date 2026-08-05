@@ -1,0 +1,44 @@
+# -----------------------------------------------------------------------
+# Portkey AI Gateway — Helm values template for Docker conversion
+#
+# Copy this file to values.yaml, fill in your credentials, then run:
+#   python3 convert.py --deploy
+# -----------------------------------------------------------------------
+
+# Registry credentials for pulling the gateway image.
+# Obtained from your Portkey account / support team.
+imageCredentials:
+  - name: airsgatewayregistrycredentials
+    create: true
+    registry: "https://registry.portkey.ai"
+    username: "<YOUR_REGISTRY_USERNAME>"
+    password: "<YOUR_REGISTRY_PASSWORD>"
+
+# Gateway image to deploy.
+# Set the tag to the version provided by Portkey (e.g. "2.15.0").
+image:
+  repository: registry.portkey.ai/airsgw/gateway_enterprise
+  tag: "<GATEWAY_VERSION>"
+
+# Secrets passed to the gateway container.
+# PORTKEY_CLIENT_AUTH and ORGANISATIONS_TO_SYNC are provided by Portkey.
+environment:
+  create: true
+  secret: true
+  data:
+    SERVICE_NAME: "airsgateway"
+    PORT: "8787"
+    MCP_PORT: "8788"
+    SERVER_MODE: "all"
+    LOG_STORE_FILE_PATH_FORMAT: "v2"
+    PORTKEY_CLIENT_AUTH: "<YOUR_PORTKEY_CLIENT_AUTH>"
+    ORGANISATIONS_TO_SYNC: "<YOUR_ORGANISATION_ID>"
+    # Comma-separated list of hosts the gateway is allowed to forward to.
+    # Add your local model runner or upstream host here if needed.
+    TRUSTED_CUSTOM_HOSTS: "localhost,127.0.0.1,host.docker.internal"
+
+# Port mapping: host port → container port.
+service:
+  type: LoadBalancer
+  port: 80
+  containerPort: 8787
