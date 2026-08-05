@@ -8,10 +8,16 @@ Usage:
 The image is resolved in this priority order:
   1. --image CLI flag
   2. image.repository + image.tag in values.yaml
-  3. Registry hostname from imageCredentials + a prompted tag
+  3. DEFAULT_GATEWAY_IMAGE constant
+
+Outputs:
+  docker-compose.yml   — the compose stack
+  deploy.sh            — Linux/macOS: logs in to the registry then starts the stack
+  deploy.bat           — Windows: same
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -88,6 +94,49 @@ def resolve_image(values: dict, cli_image: str | None) -> str:
     return DEFAULT_GATEWAY_IMAGE
 
 
+def write_deploy_scripts(creds_list: list, compose_path: Path, output_dir: Path) -> None:
+    login_sh_lines = []
+    login_bat_lines = []
+
+    for cred in creds_list:
+        registry = cred.get("registry", "").removeprefix("https://").removeprefix("http://")
+        username = cred.get("username", "")
+        password = cred.get("password", "")
+        if not (registry and username and password):
+            continue
+        login_sh_lines.append(
+            f'echo "{password}" | docker login {registry} -u "{username}" --password-stdin'
+        )
+        login_bat_lines.append(
+            f'echo {password}| docker login {registry} -u "{username}" --password-stdin'
+        )
+
+    compose_file = compose_path.name
+
+    sh_path = output_dir / "deploy.sh"
+    sh_lines = ["#!/usr/bin/env bash", "set -euo pipefail", ""]
+    if login_sh_lines:
+        sh_lines += ["echo '[1/2] Logging in to registry...'"] + login_sh_lines + [""]
+    sh_lines += [
+        "echo '[2/2] Starting stack...'",
+        f'docker compose -f "$(dirname "$0")/{compose_file}" up -d',
+        "echo 'Done.'",
+    ]
+    sh_path.write_text("\n".join(sh_lines) + "\n")
+    sh_path.chmod(sh_path.stat().st_mode | 0o755)
+
+    bat_path = output_dir / "deploy.bat"
+    bat_lines = ["@echo off"]
+    if login_bat_lines:
+        bat_lines += ["echo [1/2] Logging in to registry..."] + login_bat_lines
+    bat_lines += [
+        "echo [2/2] Starting stack...",
+        f'docker compose -f "%~dp0{compose_file}" up -d',
+        "echo Done.",
+    ]
+    bat_path.write_text("\r\n".join(bat_lines) + "\r\n")
+
+
 def resource_limits(cpus: str, memory: str) -> dict:
     return {"deploy": {"resources": {"limits": {"cpus": cpus, "memory": memory}}}}
 
@@ -142,13 +191,13 @@ def main() -> None:
     # Step 1: Registry login
     creds = values.get("imageCredentials", [])
     if creds and not args.no_login:
-        print("\n[1/3] Docker registry login")
+        print("\n[1/4] Docker registry login")
         docker_login(creds)
     else:
-        print("\n[1/3] Skipping registry login (no credentials or --no-login)")
+        print("\n[1/4] Skipping registry login (no credentials or --no-login)")
 
     # Step 2: Resolve image
-    print("\n[2/3] Resolving image")
+    print("\n[2/4] Resolving image")
     image = resolve_image(values, args.image)
     print(f"  Image: {image}")
 
@@ -167,7 +216,7 @@ def main() -> None:
     redis_res = {**DEFAULT_RESOURCES["redis"], **res.get("redis", {})}
 
     # Step 3: Write docker-compose.yml
-    print(f"\n[3/3] Writing {args.output}")
+    print(f"\n[3/4] Writing {args.output}")
     compose = build_compose(image, merged_env, host_port, container_port, gw_res, redis_res)
 
     output_path = Path(args.output)
@@ -178,6 +227,12 @@ def main() -> None:
     print(f"  Gateway: {host_port} → {container_port} ({len(merged_env)} env vars)")
     print(f"  Resources: gateway={gw_res['cpus']} CPUs / {gw_res['memory']}  redis={redis_res['cpus']} CPUs / {redis_res['memory']}")
 
+    # Step 4: Write deploy scripts
+    print("\n[4/4] Writing deploy scripts")
+    write_deploy_scripts(creds, output_path, output_path.parent)
+    print(f"  Written: deploy.sh  (Linux / macOS)")
+    print(f"  Written: deploy.bat (Windows)")
+
     if args.deploy:
         print("\n[+] Deploying with docker compose up -d...")
         result = subprocess.run(["docker", "compose", "-f", str(output_path), "up", "-d"])
@@ -185,8 +240,10 @@ def main() -> None:
             sys.exit("Deployment failed.")
         print("Deployed successfully.")
     else:
-        print(f"\nTo deploy: docker compose -f {output_path} up -d")
-        print(f"     or:   python convert.py --values {args.values} --deploy")
+        print(f"\nGive the customer these 3 files:")
+        print(f"  {output_path.name}  deploy.sh  deploy.bat")
+        print(f"\nLinux/macOS:  bash deploy.sh")
+        print(f"Windows:      deploy.bat")
 
 
 if __name__ == "__main__":
