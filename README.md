@@ -102,10 +102,11 @@ docker compose up -d
 
 ## Step 4 — Verify the deployment
 
-Once the stack is running, confirm the gateway is healthy:
+Once the stack is running, confirm the gateway is healthy. Run these commands from the folder that contains `docker-compose.yml`:
 
 ```bash
 # Check that both containers are running
+cd "/path/to/gwy-docker-converter"
 docker compose ps
 
 # View gateway logs
@@ -114,6 +115,8 @@ docker compose logs airs-gateway
 # Test the gateway endpoint (replace 80 with your configured port if different)
 curl http://localhost:80/
 ```
+
+> **Note:** `docker compose ps` and `docker compose logs` only work when run from the folder containing `docker-compose.yml`, or by passing `-f /path/to/docker-compose.yml`. To check containers from anywhere, use `docker ps`.
 
 The gateway API will be available at `http://localhost:<port>` where `<port>` is the
 value you set for `service.port` in `values.yaml` (default: `80`).
