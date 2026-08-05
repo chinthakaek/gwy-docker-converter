@@ -111,8 +111,9 @@ docker compose -p portkey-gateway ps
 # View gateway logs
 docker compose -p portkey-gateway logs airs-gateway
 
-# Test the gateway endpoint (replace 80 with your configured port if different)
-curl http://localhost:80/
+# Test the gateway health endpoint (replace 80 with your configured port if different)
+curl http://localhost:80/v1/health
+# Expected: {"status":"success","message":"Server is healthy","version":"2.15.0"}
 ```
 
 > **Note:** The generated compose file uses the fixed project name `portkey-gateway`, so `docker compose ps` works from any directory by adding `-p portkey-gateway`. To check containers from anywhere without specifying a path, use `docker ps`.
