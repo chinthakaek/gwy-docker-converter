@@ -46,15 +46,9 @@ If you are unsure where to find any of these, contact [support@portkey.ai](mailt
 
 ---
 
-## Step 2 — Create and fill in values.yaml
+## Step 2 — Place and fill in values.yaml
 
-Copy the provided template and open it in a text editor:
-
-```bash
-cp values.yaml.example values.yaml
-```
-
-Open `values.yaml` and replace every `<PLACEHOLDER>` with the real values you gathered in Step 1:
+You will have received a `values.yaml` file. Copy it into the same folder as `convert.py`, then open it in a text editor and replace every `<PLACEHOLDER>` with the real values you gathered in Step 1:
 
 ```yaml
 imageCredentials:
