@@ -28,11 +28,33 @@ python3 convert.py --deploy
 
 The script will:
 1. Log in to the Portkey registry using credentials in `values.yaml`
-2. Pull the gateway image
+2. Resolve the gateway image (defaults to `registry.portkey.ai/airsgw/gateway_enterprise:2.15.0`)
 3. Write a `docker-compose.yml` with all required env vars
-4. Start the gateway and Redis with `docker compose up -d`
+4. Write a `deploy.sh` (Linux/macOS) and `deploy.bat` (Windows) that handle registry login and stack startup
+5. Start the gateway and Redis with `docker compose up -d` (if `--deploy` is passed)
 
 The gateway will be reachable at `http://localhost:<service.port>` (default: port 80).
+
+## Distributing to customers
+
+Give the customer these three generated files — no other tooling required:
+
+```
+docker-compose.yml
+deploy.sh        ← Linux / macOS
+deploy.bat       ← Windows
+```
+
+The deploy scripts embed the registry credentials and handle `docker login`
+automatically, so the customer just runs one command:
+
+```bash
+# Linux / macOS
+bash deploy.sh
+
+# Windows
+deploy.bat
+```
 
 ## Usage
 
@@ -69,6 +91,8 @@ imageCredentials:
     username: "<YOUR_REGISTRY_USERNAME>"
     password: "<YOUR_REGISTRY_PASSWORD>"
 
+# Optional — defaults to registry.portkey.ai/airsgw/gateway_enterprise:2.15.0
+# Override with --image on the command line or add this section:
 image:
   repository: registry.portkey.ai/airsgw/gateway_enterprise
   tag: "<GATEWAY_VERSION>"
@@ -122,8 +146,8 @@ resources:
 
 - **Never commit `values.yaml`** — it contains credentials. It is listed
   in `.gitignore` by default.
-- The generated `docker-compose.yml` embeds env vars from `values.yaml`
-  and is also gitignored.
+- The generated `docker-compose.yml`, `deploy.sh`, and `deploy.bat` embed
+  credentials and env vars from `values.yaml` — all three are gitignored.
 - For production use, prefer injecting secrets via Docker secrets or a
   secrets manager rather than plain env vars.
 
