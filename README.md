@@ -46,9 +46,9 @@ If you are unsure where to find any of these, contact [support@portkey.ai](mailt
 
 ---
 
-## Step 2 — Place and fill in values.yaml
+## Step 2 — Place your values.yaml
 
-You will have received a `values.yaml` file. Copy it into the same folder as `convert.py`, then open it in a text editor and replace every `<PLACEHOLDER>` with the real values you gathered in Step 1:
+You will have received a pre-configured `values.yaml` file. Copy it into the same folder as `convert.py` — no editing required. It should look like this:
 
 ```yaml
 imageCredentials:
@@ -70,8 +70,7 @@ service:
   containerPort: 8787
 ```
 
-> **Security note:** `values.yaml` contains credentials and is listed in `.gitignore`.
-> Never commit it to version control.
+> **Security note:** `values.yaml` contains credentials — never commit it to version control.
 
 ---
 
