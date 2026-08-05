@@ -92,11 +92,3 @@ Infrastructure defaults (Redis connection, control plane URLs, etc.) are
 baked into the converter. Any key in `environment.data` overrides the
 corresponding default, so you only need to specify what differs.
 
-## Security
-
-- **Never commit `values.yaml`** — it contains credentials. It is listed
-  in `.gitignore` by default.
-- The generated `docker-compose.yml` embeds env vars from `values.yaml`
-  and is also gitignored.
-- For production use, prefer injecting secrets via Docker secrets or a
-  secrets manager rather than plain env vars.
