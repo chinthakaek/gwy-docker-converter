@@ -3,50 +3,133 @@
 Convert a Portkey AI Gateway Helm `values.yaml` into a ready-to-run
 `docker-compose.yml` for local or single-host Docker deployments.
 
-## Why
+## What this tool does
 
-The official gateway is distributed as a Helm chart for Kubernetes.
-This tool lets you take the same `values.yaml` you received from Portkey
-and spin up an identical stack on plain Docker — no Kubernetes required.
+The official Portkey AI Gateway is distributed as a Helm chart for Kubernetes.
+This converter lets you take the same `values.yaml` configuration and spin up an
+identical stack on plain Docker — no Kubernetes required.
+
+Running `python3 convert.py` produces three files:
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | The full gateway + Redis stack definition |
+| `deploy.sh` | One-command launcher for Linux / macOS |
+| `deploy.bat` | One-command launcher for Windows |
+
+---
 
 ## Prerequisites
 
-- Docker + Docker Compose (v2)
-- Python 3.10+
-- PyYAML: `pip3 install pyyaml`
+Install the following before starting:
 
-## Quick start
+- **Docker Desktop** (includes Docker Compose v2) — [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+- **Python 3.10+** — [python.org](https://www.python.org)
+- **PyYAML** — run: `pip3 install pyyaml`
+
+---
+
+## Step 1 — Gather your Portkey credentials
+
+You need four values from your Portkey account before you can configure the gateway.
+Log in to [portkey.ai](https://portkey.ai) and note the following:
+
+| Value | Where to find it |
+|---|---|
+| Registry username | Portkey dashboard → Settings → Registry Access, or provided by your Portkey account team |
+| Registry password | Same location as above |
+| `PORTKEY_CLIENT_AUTH` | Portkey dashboard → Settings → API Keys |
+| `ORGANISATIONS_TO_SYNC` | Portkey dashboard → Settings → Organisation — copy the Organisation ID |
+| Gateway image tag | Provided by your Portkey account team (e.g. `2.15.0`) |
+
+If you are unsure where to find any of these, contact [support@portkey.ai](mailto:support@portkey.ai).
+
+---
+
+## Step 2 — Create and fill in values.yaml
+
+Copy the provided template and open it in a text editor:
 
 ```bash
-# 1. Copy the template and fill in your credentials
 cp values.yaml.example values.yaml
-$EDITOR values.yaml
+```
 
-# 2. Generate docker-compose.yml and deploy in one step
+Open `values.yaml` and replace every `<PLACEHOLDER>` with the real values you gathered in Step 1:
+
+```yaml
+imageCredentials:
+  - registry: "https://registry.portkey.ai"
+    username: "your-registry-username"       # from Portkey dashboard → Settings → Registry Access
+    password: "your-registry-password"       # from Portkey dashboard → Settings → Registry Access
+
+image:
+  repository: registry.portkey.ai/airsgw/gateway_enterprise
+  tag: "2.15.0"                              # version provided by your Portkey account team
+
+environment:
+  data:
+    PORTKEY_CLIENT_AUTH: "your-client-auth"  # from Portkey dashboard → Settings → API Keys
+    ORGANISATIONS_TO_SYNC: "your-org-id"     # from Portkey dashboard → Settings → Organisation
+
+service:
+  port: 80           # host port the gateway will listen on
+  containerPort: 8787
+```
+
+> **Security note:** `values.yaml` contains credentials and is listed in `.gitignore`.
+> Never commit it to version control.
+
+---
+
+## Step 3 — Generate and deploy
+
+### Option A: Generate and start in one command
+
+```bash
 python3 convert.py --deploy
 ```
 
-The script will:
-1. Log in to the Portkey registry using credentials in `values.yaml`
-2. Resolve the gateway image (defaults to `registry.portkey.ai/airsgw/gateway_enterprise:2.15.0`)
-3. Write a `docker-compose.yml` with all required env vars
-4. Write a `deploy.sh` (Linux/macOS) and `deploy.bat` (Windows) that handle registry login and stack startup
-5. Start the gateway and Redis with `docker compose up -d` (if `--deploy` is passed)
+This will:
+1. Log in to the Portkey container registry using your credentials
+2. Write `docker-compose.yml` with all environment variables and resource limits
+3. Write `deploy.sh` and `deploy.bat` for future re-deployments
+4. Start the gateway and Redis with `docker compose up -d`
 
-The gateway will be reachable at `http://localhost:<service.port>` (default: port 80).
+### Option B: Generate files only, then deploy manually
 
-## Distributing to customers
+```bash
+# Generate the files
+python3 convert.py
 
-Give the customer these three generated files — no other tooling required:
-
-```
-docker-compose.yml
-deploy.sh        ← Linux / macOS
-deploy.bat       ← Windows
+# Start the stack
+docker compose up -d
 ```
 
-The deploy scripts embed the registry credentials and handle `docker login`
-automatically, so the customer just runs one command:
+---
+
+## Step 4 — Verify the deployment
+
+Once the stack is running, confirm the gateway is healthy:
+
+```bash
+# Check that both containers are running
+docker compose ps
+
+# View gateway logs
+docker compose logs airs-gateway
+
+# Test the gateway endpoint (replace 80 with your configured port if different)
+curl http://localhost:80/
+```
+
+The gateway API will be available at `http://localhost:<port>` where `<port>` is the
+value you set for `service.port` in `values.yaml` (default: `80`).
+
+---
+
+## Re-deploying or updating
+
+To restart the stack on the same host using the generated scripts:
 
 ```bash
 # Linux / macOS
@@ -56,14 +139,21 @@ bash deploy.sh
 deploy.bat
 ```
 
-## Usage
+To upgrade to a new gateway version:
+
+1. Update the `image.tag` in `values.yaml` to the new version
+2. Re-run `python3 convert.py --deploy`
+
+---
+
+## CLI reference
 
 ```
 python3 convert.py [OPTIONS]
 
 Options:
   --values FILE      Path to values.yaml (default: values.yaml)
-  --image IMAGE:TAG  Override the gateway image (e.g. registry.portkey.ai/airsgw/gateway_enterprise:2.15.0)
+  --image IMAGE:TAG  Override the gateway image, e.g. registry.portkey.ai/airsgw/gateway_enterprise:2.15.0
   --output FILE      Output file path (default: docker-compose.yml)
   --deploy           Run 'docker compose up -d' after generating the file
   --no-login         Skip docker registry login
@@ -72,67 +162,47 @@ Options:
 ### Examples
 
 ```bash
-# Generate only, deploy manually
+# Generate files only, deploy manually
 python3 convert.py
 docker compose up -d
 
-# Override image version
+# Generate and deploy immediately
+python3 convert.py --deploy
+
+# Pin to a specific gateway version
 python3 convert.py --image registry.portkey.ai/airsgw/gateway_enterprise:2.15.0 --deploy
 
-# Use a different values file
-python3 convert.py --values /path/to/customer-values.yaml --deploy
+# Use a non-default values file
+python3 convert.py --values /path/to/my-values.yaml --deploy
 ```
 
-## values.yaml structure
+---
+
+## values.yaml reference
 
 ```yaml
 imageCredentials:
   - registry: "https://registry.portkey.ai"
-    username: "<YOUR_REGISTRY_USERNAME>"
-    password: "<YOUR_REGISTRY_PASSWORD>"
+    username: "<REGISTRY_USERNAME>"
+    password: "<REGISTRY_PASSWORD>"
 
-# Optional — defaults to registry.portkey.ai/airsgw/gateway_enterprise:2.15.0
-# Override with --image on the command line or add this section:
+# Gateway image version. Use the tag provided by your Portkey account team.
 image:
   repository: registry.portkey.ai/airsgw/gateway_enterprise
-  tag: "<GATEWAY_VERSION>"
+  tag: "<VERSION>"          # e.g. 2.15.0
 
 environment:
   data:
-    PORTKEY_CLIENT_AUTH: "<YOUR_PORTKEY_CLIENT_AUTH>"
-    ORGANISATIONS_TO_SYNC: "<YOUR_ORGANISATION_ID>"
-    # ... additional env vars
+    PORTKEY_CLIENT_AUTH: "<CLIENT_AUTH_KEY>"
+    ORGANISATIONS_TO_SYNC: "<ORGANISATION_ID>"
+    # Optional: comma-separated list of extra hosts the gateway can forward to
+    TRUSTED_CUSTOM_HOSTS: "localhost,127.0.0.1,host.docker.internal"
 
 service:
   port: 80           # host port
   containerPort: 8787
-```
 
-See `values.yaml.example` for the full template.
-
-## Environment variable precedence
-
-Infrastructure defaults (Redis connection, control plane URLs, etc.) are
-baked into the converter. Any key in `environment.data` overrides the
-corresponding default, so you only need to specify what differs.
-
-## Resource sizing
-
-Official recommendations from Portkey documentation:
-
-| Component | Minimum | Recommended |
-|---|---|---|
-| Gateway (vCPU) | 1 core | 2 cores |
-| Gateway (RAM) | 2 GB | 4 GB |
-| Redis (vCPU) | 0.25 core | 0.5 core |
-| Redis (RAM) | 256 MB | 512 MB |
-
-> Source: [Portkey Hybrid Data Plane deployment guide](https://portkey.ai/docs/enterprise/hybrid)
-
-The converter sets these as default resource limits in the generated `docker-compose.yml`.
-Override them by adding a `resources:` section to your `values.yaml`:
-
-```yaml
+# Optional: override default resource limits
 resources:
   gateway:
     cpus: "2.0"
@@ -142,36 +212,55 @@ resources:
     memory: "512m"
 ```
 
-## Security
+---
 
-- **Never commit `values.yaml`** — it contains credentials. It is listed
-  in `.gitignore` by default.
-- The generated `docker-compose.yml`, `deploy.sh`, and `deploy.bat` embed
-  credentials and env vars from `values.yaml` — all three are gitignored.
-- For production use, prefer injecting secrets via Docker secrets or a
-  secrets manager rather than plain env vars.
+## Resource sizing
 
-## Required outbound URLs and domains
+Default limits applied to the generated `docker-compose.yml` (based on
+[Portkey's official sizing guide](https://portkey.ai/docs/enterprise/hybrid)):
 
-If your host is behind a firewall or egress proxy, allowlist the following.
+| Component | Default (applied) | Minimum |
+|---|---|---|
+| Gateway (vCPU) | 2 cores | 1 core |
+| Gateway (RAM) | 4 GB | 2 GB |
+| Redis (vCPU) | 0.5 core | 0.25 core |
+| Redis (RAM) | 512 MB | 256 MB |
 
-### Persistent (required at runtime)
+Override these by adding a `resources:` block to `values.yaml` (see reference above).
 
-| Domain / URL | Purpose |
-|---|---|
-| `https://aigw.portkey.ai` | Control plane — logs, analytics, and config sync |
-| `https://mp.us.prod.airs-gw.portkey.ai` | Policy engine and guardrails evaluation |
-| `https://api.portkey.ai` | Organisation sync and model config fetch |
+---
 
-### Image pull only
+## Required outbound network access
+
+If the host is behind a firewall or egress proxy, allow the following:
+
+### Always required (runtime)
 
 | Domain | Purpose |
 |---|---|
-| `https://registry.portkey.ai` | Pull the gateway container image (needed at deploy/upgrade time) |
+| `https://aigw.portkey.ai` | Control plane — logs, analytics, config sync |
+| `https://mp.us.prod.airs-gw.portkey.ai` | Policy engine and guardrails |
+| `https://api.portkey.ai` | Organisation sync and model config |
 
-### User-defined (request-time)
+### Required at deploy / upgrade time only
 
-The gateway forwards requests to whatever AI provider endpoints your virtual
-keys are configured for (e.g. `api.openai.com`, `api.anthropic.com`,
-`generativelanguage.googleapis.com`). These are resolved at request time and
-are not hardcoded — allowlist them based on the providers you use.
+| Domain | Purpose |
+|---|---|
+| `https://registry.portkey.ai` | Pull the gateway container image |
+
+### Depends on your AI providers
+
+The gateway forwards requests to whatever AI provider endpoints your virtual keys
+are configured for (e.g. `api.openai.com`, `api.anthropic.com`).
+Allowlist the providers relevant to your deployment.
+
+---
+
+## Security
+
+- **Never commit `values.yaml`** — it contains registry credentials and API keys.
+  It is listed in `.gitignore` by default.
+- The generated `docker-compose.yml`, `deploy.sh`, and `deploy.bat` also embed
+  credentials and are gitignored.
+- For production environments, consider injecting secrets via Docker secrets or a
+  dedicated secrets manager instead of plain environment variables.

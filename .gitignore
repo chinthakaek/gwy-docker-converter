@@ -4,10 +4,12 @@ values.yaml
 *.env
 .env*
 
-# The generated compose file may contain env vars from values.yaml.
+# The generated compose file and deploy scripts embed credentials from values.yaml.
 docker-compose.yml
 docker-compose.*.yml
 !docker-compose.example.yml
+deploy.sh
+deploy.bat
 
 # ── Python ───────────────────────────────────────────────────────────────
 __pycache__/
