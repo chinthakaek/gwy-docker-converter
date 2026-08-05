@@ -41,6 +41,7 @@ INFRA_ENV_DEFAULTS = {
 }
 
 REDIS_IMAGE = "redis:7.2-alpine"
+DEFAULT_GATEWAY_IMAGE = "registry.portkey.ai/airsgw/gateway_enterprise:2.15.0"
 
 # Default resource limits based on Portkey official sizing guidance.
 # (1–2 cores, 2–4 GB RAM per gateway instance)
@@ -83,21 +84,8 @@ def resolve_image(values: dict, cli_image: str | None) -> str:
     if repo:
         return repo  # tag-less, Docker will use :latest
 
-    # Fall back: derive registry host from imageCredentials and ask for the rest
-    creds = values.get("imageCredentials", [])
-    if creds:
-        registry = creds[0].get("registry", "").removeprefix("https://").removeprefix("http://")
-        print(
-            f"\nNo image found in values.yaml or --image flag.\n"
-            f"Registry from imageCredentials: {registry}\n"
-        )
-        image = input("Enter full image (e.g. registry.portkey.ai/airsgw/gateway_enterprise:2.15.0): ").strip()
-        if image:
-            return image
-
-    sys.exit(
-        "Cannot determine image. Add an 'image:' section to values.yaml or pass --image IMAGE:TAG."
-    )
+    print(f"  No image found in values.yaml or --image flag. Using default: {DEFAULT_GATEWAY_IMAGE}")
+    return DEFAULT_GATEWAY_IMAGE
 
 
 def resource_limits(cpus: str, memory: str) -> dict:
