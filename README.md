@@ -102,10 +102,8 @@ Official recommendations from Portkey documentation:
 | Gateway (RAM) | 2 GB | 4 GB |
 | Redis (vCPU) | 0.25 core | 0.5 core |
 | Redis (RAM) | 256 MB | 512 MB |
-| **Host total (vCPU)** | **1.5 cores** | **2.5 cores** |
-| **Host total (RAM)** | **2.5 GB** | **4.5 GB** |
 
-> Source: Portkey "Deploy a Hybrid Data Plane" documentation — Step 1: Environment Readiness.
+> Source: [Portkey Hybrid Data Plane deployment guide](https://portkey.ai/docs/enterprise/hybrid)
 
 The converter sets these as default resource limits in the generated `docker-compose.yml`.
 Override them by adding a `resources:` section to your `values.yaml`:
